@@ -4,6 +4,9 @@ sys.path.append('..')
 sys.path.append('../..')
 import argparse
 import utils
+import numpy as np, pandas as pd
+from more_itertools import iterate, take
+from pulp import LpProblem, LpVariable, LpBinary, lpDot, lpSum, value
 
 from student_utils import *
 """
@@ -11,6 +14,56 @@ from student_utils import *
   Complete the following function.
 ======================================================================
 """
+
+
+def tsp(nodes, dist=None):
+    """
+    巡回セールスマン問題
+    入力
+        nodes: 点(dist未指定時は、座標)のリスト
+        dist: (i,j)をキー、距離を値とした辞書
+    出力
+        距離と点番号リスト
+    """
+
+    n = len(nodes)
+
+    if not dist:
+        dist = {(i, j): np.linalg.norm(np.subtract(nodes[i], nodes[j]))
+                for i in range(n) for j in range(i + 1, n)}
+        dist.update({(j, i): d for (i, j), d in dist.items()})
+
+    # data farme containing distances from node i to node j
+    a = pd.DataFrame([(i, j, dist[i, j])
+                      for i in range(n) for j in range(n) if i != j], columns=['NodeI', 'NodeJ', 'Dist'])
+
+    m = LpProblem()
+
+    # creates x_ij for every edge in the graph
+    a['VarIJ'] = [LpVariable('x%d' % i, cat=LpBinary) for i in a.index]
+
+    a['VarJI'] = a.sort_values(['NodeJ', 'NodeI']).VarIJ.values
+
+    #
+    u = [0] + [LpVariable('y%d' % i, lowBound=0) for i in range(n - 1)]
+
+    # gives the total distance,
+    m += lpDot(a.Dist, a.VarIJ)
+
+    for _, v in a.groupby('NodeI'):
+        m += lpSum(v.VarIJ) == 1  # constraint for one edge exiting each vertex
+        m += lpSum(v.VarJI) == 1  # constraint for one edge entering each vertex
+
+    for _, (i, j, _, vij, vji) in a.query('NodeI!=0 & NodeJ!=0').iterrows():
+        m += u[i] + 1 - (n - 1) * (1 - vij) + (n - 3) * vji <= u[j]  # 持ち上げポテンシャル制約(MTZ)
+    for _, (_, j, _, v0j, vj0) in a.query('NodeI==0').iterrows():
+        m += 1 + (1 - v0j) + (n - 3) * vj0 <= u[j]  # 持ち上げ下界制約
+    for _, (i, _, _, vi0, v0i) in a.query('NodeJ==0').iterrows():
+        m += u[i] <= (n - 1) - (1 - vi0) - (n - 3) * v0i  # 持ち上げ上界制約
+    m.solve()
+    a['ValIJ'] = a.VarIJ.apply(value)
+    dc = dict(a[a.ValIJ > 0.5][['NodeI', 'NodeJ']].values)
+    return value(m.objective), list(take(n, iterate(lambda k: dc[k], 0)))
 
 def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix, params=[]):
     """
@@ -24,7 +77,9 @@ def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_mat
         A list of locations representing the car path
         A list of (location, [homes]) representing drop-offs
     """
-    pass
+    return tsp(adjacency_matrix_to_edge_list(adjacency_matrix))
+
+
     
 
 """
@@ -79,19 +134,27 @@ def solve_all(input_directory, output_directory, params=[]):
 
 
 if __name__=="__main__":
-    parser = argparse.ArgumentParser(description='Parsing arguments')
-    parser.add_argument('--all', action='store_true', help='If specified, the solver is run on all files in the input directory. Else, it is run on just the given input file')
-    parser.add_argument('input', type=str, help='The path to the input file or directory')
-    parser.add_argument('output_directory', type=str, nargs='?', default='.', help='The path to the directory where the output should be written')
-    parser.add_argument('params', nargs=argparse.REMAINDER, help='Extra arguments passed in')
-    args = parser.parse_args()
-    output_directory = args.output_directory
-    if args.all:
-        input_directory = args.input
-        solve_all(input_directory, output_directory, params=args.params)
-    else:
-        input_file = args.input
-        solve_from_file(input_file, output_directory, params=args.params)
+    mat = [[0, 1, 1, 1],
+     [1, 0, 1, 1],
+     [1, 1, 0, 1],
+     [1, 1, 1, 0]]
+
+    print(solve(None, None, None, mat))
+
+    if False:
+        parser = argparse.ArgumentParser(description='Parsing arguments')
+        parser.add_argument('--all', action='store_true', help='If specified, the solver is run on all files in the input directory. Else, it is run on just the given input file')
+        parser.add_argument('input', type=str, help='The path to the input file or directory')
+        parser.add_argument('output_directory', type=str, nargs='?', default='.', help='The path to the directory where the output should be written')
+        parser.add_argument('params', nargs=argparse.REMAINDER, help='Extra arguments passed in')
+        args = parser.parse_args()
+        output_directory = args.output_directory
+        if args.all:
+            input_directory = args.input
+            solve_all(input_directory, output_directory, params=args.params)
+        else:
+            input_file = args.input
+            solve_from_file(input_file, output_directory, params=args.params)
 
 
         
