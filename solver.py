@@ -4,6 +4,7 @@ sys.path.append('..')
 sys.path.append('../..')
 import argparse
 import utils
+import networkx as nx
 import numpy as np, pandas as pd
 from more_itertools import iterate, take
 from pulp import LpProblem, LpVariable, LpBinary, lpDot, lpSum, value
@@ -74,6 +75,43 @@ def tsp(nodes, list_of_homes, dist=None):
     
     return value(m.objective), list(take(n, iterate(lambda k:dc[k], 0)))
 
+def greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix):
+    G = nx.Graph(incoming_graph_data=np.mat(adjacency_matrix), cutoff=1000)
+    predecessors, distances = nx.floyd_warshall_predecessor_and_distance(G)
+
+    def find_closest_home_to_location(location):
+        distance = float('inf')
+        closest_home = list_of_homes[0]
+        for h in list_of_homes:
+            home_idx = list_of_locations.index(h)
+            location_idx = list_of_locations.index(location)
+            new_dist = list(distances.items())[home_idx][1][location_idx]
+
+            if new_dist < distance:
+                distance = new_dist
+                closest_home = h
+
+        return closest_home, distance
+
+    current = starting_car_location
+    total_path = [list_of_locations.index(starting_car_location)]
+    for _ in range(len(list_of_homes)):
+        closest, distance = find_closest_home_to_location(current)
+
+        curr_idx = list_of_locations.index(current)
+        next_idx = list_of_locations.index(closest)
+        path_to_closest = nx.reconstruct_path(curr_idx, next_idx, predecessors)
+
+        total_path.extend(path_to_closest[1:])
+
+        list_of_homes.remove(closest)
+        current = closest
+    return total_path
+
+
+
+
+
 def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix, params=[]):
     """
     Write your algorithm here.
@@ -86,6 +124,7 @@ def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_mat
         A list of locations representing the car path
         A list of (location, [homes]) representing drop-offs
     """
+    return greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix)
     d = {}
     for i in range(len(adjacency_matrix)):
         for j in range(len(adjacency_matrix[0])):
@@ -150,12 +189,17 @@ def solve_all(input_directory, output_directory, params=[]):
 
 
 if __name__=="__main__":
-    mat = [[0, 1, 2, 1],
-     [1, 0, 1, 1],
-     [1, 1, 0, 1],
-     [1, 1, 1, 0]]
+    # mat = [[0, 1, 2, 1],
+    #  [1, 0, 1, 1],
+    #  [1, 1, 0, 1],
+    #  [1, 1, 1, 0]]
+    mat = [[0, 10, 8, 1, np.Inf],
+           [10, 0, 2, np.inf, np.Inf],
+           [8, 2, 0, 1, 1],
+           [1, np.inf, 1, 0, 4],
+           [np.Inf, np.Inf, 1, 4, 0]]
 
-    print(solve(['A', 'B', 'C', 'D'], ['B', 'C'], 'A', mat))
+    print(solve(['A', 'B', 'C', 'D', 'E'], ['B', 'E'], 'A', mat))
 
     if False:
         parser = argparse.ArgumentParser(description='Parsing arguments')
