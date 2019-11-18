@@ -16,7 +16,7 @@ from student_utils import *
 """
 
 
-def tsp(nodes, dist=None):
+def tsp(nodes, list_of_homes, dist=None):
     """
     巡回セールスマン問題
     入力
@@ -34,8 +34,9 @@ def tsp(nodes, dist=None):
         dist.update({(j, i): d for (i, j), d in dist.items()})
 
     # data farme containing distances from node i to node j
-    a = pd.DataFrame([(i, j, dist[i, j])
-                      for i in range(n) for j in range(n) if i != j], columns=['NodeI', 'NodeJ', 'Dist'])
+    print(dist)
+    a = pd.DataFrame([(nodes[i], i, j, dist[(i, j)])
+                      for i in range(n) for j in range(n) if i != j], columns=['Name', 'NodeI', 'NodeJ', 'Dist'])
 
     m = LpProblem()
 
@@ -46,24 +47,32 @@ def tsp(nodes, dist=None):
 
     #
     u = [0] + [LpVariable('y%d' % i, lowBound=0) for i in range(n - 1)]
-
+    print(a)
     # gives the total distance,
     m += lpDot(a.Dist, a.VarIJ)
-
+    print(list_of_homes)
     for _, v in a.groupby('NodeI'):
-        m += lpSum(v.VarIJ) == 1  # constraint for one edge exiting each vertex
-        m += lpSum(v.VarJI) == 1  # constraint for one edge entering each vertex
+        print(v)
+        print(v.iloc[0, :].NodeI)
+        print('*****')
+        if v.iloc[0, :].Name in list_of_homes:
+            print('*&&&&', v.iloc[0, :].Name)
+            m += lpSum(v.VarIJ) == 1  # constraint for one edge exiting each vertex
+            m += lpSum(v.VarJI) == 1  # constraint for one edge entering each vertex
 
-    for _, (i, j, _, vij, vji) in a.query('NodeI!=0 & NodeJ!=0').iterrows():
+    for  _, (name, i, j, _, vij, vji) in a.query('NodeI!=0 & NodeJ!=0').iterrows():
         m += u[i] + 1 - (n - 1) * (1 - vij) + (n - 3) * vji <= u[j]  # 持ち上げポテンシャル制約(MTZ)
-    for _, (_, j, _, v0j, vj0) in a.query('NodeI==0').iterrows():
-        m += 1 + (1 - v0j) + (n - 3) * vj0 <= u[j]  # 持ち上げ下界制約
-    for _, (i, _, _, vi0, v0i) in a.query('NodeJ==0').iterrows():
-        m += u[i] <= (n - 1) - (1 - vi0) - (n - 3) * v0i  # 持ち上げ上界制約
+
+    for _, (name, _, j, _, v0j, vj0) in a.query('NodeI==0').iterrows():
+        m += 1 + (1 - v0j) + (n - 3) * vj0 <= u[j]  # lower bound constraints
+    for _, (name, i, _, _, vi0, v0i) in a.query('NodeJ==0').iterrows():
+        m += u[i] <= (n - 1) - (1 - vi0) - (n - 3) * v0i  # upper bound constraints
     m.solve()
     a['ValIJ'] = a.VarIJ.apply(value)
     dc = dict(a[a.ValIJ > 0.5][['NodeI', 'NodeJ']].values)
-    return value(m.objective), list(take(n, iterate(lambda k: dc[k], 0)))
+    print(dc)
+    
+    return value(m.objective), list(take(n, iterate(lambda k:dc[k], 0)))
 
 def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix, params=[]):
     """
@@ -77,7 +86,14 @@ def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_mat
         A list of locations representing the car path
         A list of (location, [homes]) representing drop-offs
     """
-    return tsp(adjacency_matrix_to_edge_list(adjacency_matrix))
+    d = {}
+    for i in range(len(adjacency_matrix)):
+        for j in range(len(adjacency_matrix[0])):
+            if adjacency_matrix[i][j] > 0 or i==j:
+                d[(i,j)] = adjacency_matrix[i][j]
+            else:
+                d[(i, j)] = float('inf')
+    return tsp(list_of_locations, list_of_homes, d)
 
 
     
@@ -134,12 +150,12 @@ def solve_all(input_directory, output_directory, params=[]):
 
 
 if __name__=="__main__":
-    mat = [[0, 1, 1, 1],
+    mat = [[0, 1, 2, 1],
      [1, 0, 1, 1],
      [1, 1, 0, 1],
      [1, 1, 1, 0]]
 
-    print(solve(None, None, None, mat))
+    print(solve(['A', 'B', 'C', 'D'], ['B', 'C'], 'A', mat))
 
     if False:
         parser = argparse.ArgumentParser(description='Parsing arguments')
