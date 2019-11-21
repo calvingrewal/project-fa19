@@ -7,7 +7,7 @@ import utils
 import networkx as nx
 import numpy as np, pandas as pd
 from more_itertools import iterate, take
-from pulp import LpProblem, LpVariable, LpBinary, lpDot, lpSum, value
+#from pulp import LpProblem, LpVariable, LpBinary, lpDot, lpSum, value
 
 from student_utils import *
 """
@@ -76,7 +76,8 @@ def tsp(nodes, list_of_homes, dist=None):
     return value(m.objective), list(take(n, iterate(lambda k:dc[k], 0)))
 
 def greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix):
-    G = nx.Graph(incoming_graph_data=np.mat(adjacency_matrix), cutoff=1000)
+    #print(adjacency_matrix)
+    G = nx.Graph(incoming_graph_data=adjacency_matrix, cutoff=1000)
     predecessors, distances = nx.floyd_warshall_predecessor_and_distance(G)
 
     def find_closest_home_to_location(location):
@@ -95,18 +96,25 @@ def greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adja
 
     current = starting_car_location
     total_path = [list_of_locations.index(starting_car_location)]
+    dropoff_mapping = {}
+
     for _ in range(len(list_of_homes)):
         closest, distance = find_closest_home_to_location(current)
 
         curr_idx = list_of_locations.index(current)
         next_idx = list_of_locations.index(closest)
         path_to_closest = nx.reconstruct_path(curr_idx, next_idx, predecessors)
-
+        dropoff_mapping[next_idx] = [next_idx]
         total_path.extend(path_to_closest[1:])
 
         list_of_homes.remove(closest)
         current = closest
-    return total_path
+
+    start_idx = list_of_locations.index(starting_car_location)
+    path_to_start = nx.reconstruct_path(next_idx, start_idx, predecessors)
+    total_path.extend(path_to_start[1:])
+    print(dropoff_mapping)
+    return total_path, dropoff_mapping
 
 
 
@@ -124,7 +132,20 @@ def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_mat
         A list of locations representing the car path
         A list of (location, [homes]) representing drop-offs
     """
-    return greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix)
+    fixed_adjacency_matrix = np.mat(adjacency_matrix)
+    for r in range(fixed_adjacency_matrix.shape[0]):
+        for c in range(fixed_adjacency_matrix.shape[1]):
+
+            if fixed_adjacency_matrix[r,c] == 'x':
+                #print('x at %d %d'%(r, c))
+                if r == c:
+                    fixed_adjacency_matrix[r,c] = 0
+                else:
+                    fixed_adjacency_matrix[r, c] = np.Inf
+            else:
+                fixed_adjacency_matrix[r,c] = float(fixed_adjacency_matrix[r,c])
+    fixed_adjacency_matrix = fixed_adjacency_matrix.astype(np.float)
+    return greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
     d = {}
     for i in range(len(adjacency_matrix)):
         for j in range(len(adjacency_matrix[0])):
@@ -199,22 +220,22 @@ if __name__=="__main__":
            [1, np.inf, 1, 0, 4],
            [np.Inf, np.Inf, 1, 4, 0]]
 
-    print(solve(['A', 'B', 'C', 'D', 'E'], ['B', 'E'], 'A', mat))
+    #print(solve(['A', 'B', 'C', 'D', 'E'], ['B', 'E'], 'A', mat))
 
-    if False:
-        parser = argparse.ArgumentParser(description='Parsing arguments')
-        parser.add_argument('--all', action='store_true', help='If specified, the solver is run on all files in the input directory. Else, it is run on just the given input file')
-        parser.add_argument('input', type=str, help='The path to the input file or directory')
-        parser.add_argument('output_directory', type=str, nargs='?', default='.', help='The path to the directory where the output should be written')
-        parser.add_argument('params', nargs=argparse.REMAINDER, help='Extra arguments passed in')
-        args = parser.parse_args()
-        output_directory = args.output_directory
-        if args.all:
-            input_directory = args.input
-            solve_all(input_directory, output_directory, params=args.params)
-        else:
-            input_file = args.input
-            solve_from_file(input_file, output_directory, params=args.params)
+
+    parser = argparse.ArgumentParser(description='Parsing arguments')
+    parser.add_argument('--all', action='store_true', help='If specified, the solver is run on all files in the input directory. Else, it is run on just the given input file')
+    parser.add_argument('input', type=str, help='The path to the input file or directory')
+    parser.add_argument('output_directory', type=str, nargs='?', default='.', help='The path to the directory where the output should be written')
+    parser.add_argument('params', nargs=argparse.REMAINDER, help='Extra arguments passed in')
+    args = parser.parse_args()
+    output_directory = args.output_directory
+    if args.all:
+        input_directory = args.input
+        solve_all(input_directory, output_directory, params=args.params)
+    else:
+        input_file = args.input
+        solve_from_file(input_file, output_directory, params=args.params)
 
 
         
