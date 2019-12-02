@@ -4,6 +4,7 @@ sys.path.append('..')
 sys.path.append('../..')
 import argparse
 import utils
+import pprint
 import networkx as nx
 import numpy as np, pandas as pd
 from more_itertools import iterate, take
@@ -116,9 +117,9 @@ def greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adja
     print(dropoff_mapping)
     return total_path, dropoff_mapping
 
-
-
-
+def visit_clusters(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix):
+    G = nx.Graph(incoming_graph_data=adjacency_matrix, cutoff=1000)
+    pprint(nx.clustering(G))
 
 def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix, params=[]):
     """
@@ -212,12 +213,11 @@ if __name__=="__main__":
     #  [1, 0, 1, 1],
     #  [1, 1, 0, 1],
     #  [1, 1, 1, 0]]
-    mat = [[0, 10, 8, 1, np.Inf],
-           [10, 0, 2, np.inf, np.Inf],
+    mat = [[0, 10, 8, 1, 0],
+           [10, 0, 2, 0, 0],
            [8, 2, 0, 1, 1],
-           [1, np.inf, 1, 0, 4],
-           [np.Inf, np.Inf, 1, 4, 0]]
-
+           [1, 0, 1, 0, 4],
+           [0, 0, 1, 4, 0]]
     #print(solve(['A', 'B', 'C', 'D', 'E'], ['B', 'E'], 'A', mat))
 
 
@@ -234,3 +234,22 @@ if __name__=="__main__":
     else:
         input_file = args.input
         solve_from_file(input_file, output_directory, params=args.params)
+
+    visit_clusters(None, None, None, mat)
+    if False:
+        #print(solve(['A', 'B', 'C', 'D', 'E'], ['B', 'E'], 'A', mat))
+
+
+        parser = argparse.ArgumentParser(description='Parsing arguments')
+        parser.add_argument('--all', action='store_true', help='If specified, the solver is run on all files in the input directory. Else, it is run on just the given input file')
+        parser.add_argument('input', type=str, help='The path to the input file or directory')
+        parser.add_argument('output_directory', type=str, nargs='?', default='.', help='The path to the directory where the output should be written')
+        parser.add_argument('params', nargs=argparse.REMAINDER, help='Extra arguments passed in')
+        args = parser.parse_args()
+        output_directory = args.output_directory
+        if args.all:
+            input_directory = args.input
+            solve_all(input_directory, output_directory, params=args.params)
+        else:
+            input_file = args.input
+            solve_from_file(input_file, output_directory, params=args.params)
