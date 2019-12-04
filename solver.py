@@ -6,6 +6,7 @@ import argparse
 import utils
 import pprint
 import networkx as nx
+from networkx.algorithms import approximation as apxa
 import numpy as np, pandas as pd
 from more_itertools import iterate, take
 #from pulp import LpProblem, LpVariable, LpBinary, lpDot, lpSum, value
@@ -96,6 +97,9 @@ def greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adja
         return closest_home, distance
 
     current = starting_car_location
+    print(list_of_locations)
+    print(list_of_homes)
+    print(starting_car_location)
     total_path = [list_of_locations.index(starting_car_location)]
     dropoff_mapping = {}
 
@@ -115,11 +119,64 @@ def greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adja
     path_to_start = nx.reconstruct_path(next_idx, start_idx, predecessors)
     total_path.extend(path_to_start[1:])
     print(dropoff_mapping)
+    print(total_path)
     return total_path, dropoff_mapping
 
-def visit_clusters(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix):
-    G = nx.Graph(incoming_graph_data=adjacency_matrix, cutoff=1000)
-    pprint(nx.clustering(G))
+
+
+def steiner_find(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix):
+    G = nx.Graph(incoming_graph_data= adjacency_matrix, cutoff=1000)
+    predecessors, distances = nx.floyd_warshall_predecessor_and_distance(G)
+    homeIndices = []
+    for h in list_of_homes:
+        homeIndices.append(list_of_locations.index(h))
+    # homeIndices.append(list_of_locations.index(starting_car_location))
+    tree = apxa.steiner_tree(G, homeIndices + [list_of_locations.index(starting_car_location)])
+    print(list(tree.nodes))
+    # print(homeIndices)
+    # print(starting_car_location)
+    # treematrix = nx.adjacency_matrix(tree)
+    # return greedyAllPairs(list(tree.nodes), homeIndices, int(starting_car_location), treematrix)
+    nodelist = list(tree.nodes())
+    currIndex = list_of_locations.index(starting_car_location)
+    visitedNodes = []
+    path = [list_of_locations.index(starting_car_location)]
+    dropoff_mapping = {}
+    added = False
+    print(currIndex)
+    nodelist = nodelist[nodelist.index(currIndex):] + nodelist[:nodelist.index(currIndex)]
+    print(nodelist)
+    for i in range(len(nodelist) - 1):
+        path_to_next = nx.reconstruct_path(nodelist[i], nodelist[i + 1], predecessors)
+        path.extend(path_to_next[1:])
+        if nodelist[i] in homeIndices:
+            dropoff_mapping[nodelist[i]] = [nodelist[i]]
+    if nodelist[-1] in homeIndices:
+        dropoff_mapping[nodelist[-1]] = [nodelist[-1]]
+    path_to_start = nx.reconstruct_path(nodelist[-1], nodelist[0], predecessors)
+    path.extend(path_to_start[1:])
+        # added = False
+        # print(currIndex)
+        # print(list(tree.neighbors(currIndex)))
+        # for j in list(tree.neighbors(currIndex)):
+        #     if j not in visitedNodes and added == False:
+        #         path.append(j)
+        #         currIndex = j
+        #         visitedNodes.append(currIndex)
+        #         added = True
+        # if added != True: 
+        #     path_to_next = nx.reconstruct_path(currIndex, nodelist[i + 1], predecessors)
+        #     path.extend(path_to_next[1:])
+        #     visitedNodes.append(currIndex)
+        #     currIndex = nodelist[i + 1]
+    return path, dropoff_mapping
+
+
+
+
+# def visit_clusters(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix):
+#     G = nx.Graph(incoming_graph_data=adjacency_matrix, cutoff=1000)
+#     pprint(nx.clustering(G))
 
 def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix, params=[]):
     """
@@ -147,7 +204,7 @@ def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_mat
             else:
                 fixed_adjacency_matrix[r,c] = float(fixed_adjacency_matrix[r,c])
     fixed_adjacency_matrix = fixed_adjacency_matrix.astype(np.float)
-    return greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
+    return steiner_find(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
     d = {}
     for i in range(len(adjacency_matrix)):
         for j in range(len(adjacency_matrix[0])):
@@ -235,7 +292,7 @@ if __name__=="__main__":
         input_file = args.input
         solve_from_file(input_file, output_directory, params=args.params)
 
-    visit_clusters(None, None, None, mat)
+    # visit_clusters(None, None, None, mat)
     if False:
         #print(solve(['A', 'B', 'C', 'D', 'E'], ['B', 'E'], 'A', mat))
 
