@@ -134,12 +134,18 @@ def greedyAllPairs2(list_of_locations, list_of_homes, starting_car_location, adj
     homeList = list_of_homes[:]
     def get_distance(a, b):
         return list(distances.items())[a][1][b]
-    def find_closest_home_to_location(location):
+    def find_closest_home_to_location(location, homeList=homeList):
         distance = float('inf')
         closest_home = homeList[0]
         for h in homeList:
-            home_idx = list_of_locations.index(h)
-            location_idx = list_of_locations.index(location)
+            if h in list_of_locations:
+                home_idx = list_of_locations.index(h)
+            else:
+                home_idx = h
+            if location in list_of_locations:
+                location_idx = list_of_locations.index(location)
+            else:
+                location_idx = location
             #new_dist = list(distances.items())[home_idx][1][location_idx]
             new_dist = get_distance(home_idx, location_idx)
 
@@ -164,35 +170,63 @@ def greedyAllPairs2(list_of_locations, list_of_homes, starting_car_location, adj
         homeNeighbors = set(homeSet.intersection(list(G.neighbors(node))))
         shlong = 0
         for node2 in list(G.neighbors(node)):
-            if node2 != node:
-                homeNeighbors.add(node2)
-                shlong += get_distance(current, node2)
+            for node3 in list(G.neighbors(node2)):
+                if node3 != node and node3 in homeSet:
+                    homeNeighbors.add(node2)
+                    shlong += get_distance(node, node3)
+
+
         dong = 0
+        curr = current
+        
+        dong_dropoffs = [] 
+        homeNeighbors = [j for j in homeNeighbors if j in homeSet]
+        n = 1
+        homeNeighborsCopy = list(homeNeighbors)
         for _ in range(len(homeNeighbors)):
             
-            dong += get_distance(homeNeighbors[i], homeNeighbors[i+1])
+            closest, distance = find_closest_home_to_location(curr, homeNeighborsCopy)
+
+           # curr_idx = list_of_locations.index(curr)
+           # next_idx = list_of_locations.index(closest)
+
+            homeNeighborsCopy.remove(closest)
+            dong_dropoffs.append(closest)
+            curr = closest
+
+            dong += distance
             
         if shlong < dong:
-        if some shit:
-            print("")
-        # print(homeNeighbors)
-        n = 1
-        if len(homeNeighbors) >= 3 :
+            if node not in dropoff_mapping:
+                dropoff_mapping[node] = []
+            if node in homeSet:
+                dong_dropoffs.append(node)
+            for d in dong_dropoffs:
+                dropoff_mapping[node].append(d)
+            n = len(dong_dropoffs)
             dropped = True
-            node = list_of_locations.index(current)
-            homeNeighbors = [j for j in homeNeighbors if j in homeSet]
-            if (node in homeSet):
-                homeNeighbors = homeNeighbors + [node]
-            dropoff_mapping[node] = homeNeighbors
-            homeSet = set([j for j in homeSet if j not in homeNeighbors])
+            homeSet = set([j for j in homeSet if j not in dong_dropoffs])
             homeList = [j for j in homeList if list_of_locations.index(j) in homeSet]
-            n = len(homeNeighbors)
+
+            #drop it like its hot
+            
+        # print(homeNeighbors)
+    #    if len(homeNeighbors) >= 3 :
+    #        dropped = True
+    #        node = list_of_locations.index(current)
+    #        homeNeighbors = [j for j in homeNeighbors if j in homeSet]
+    #        if (node in homeSet):
+    #            homeNeighbors = homeNeighbors + [node]
+    #        dropoff_mapping[node]= homeNeighbors
+    #        homeSet = set([j for j in homeSet if j not in homeNeighbors])
+    #        homeList = [j for j in homeList if list_of_locations.index(j) in homeSet]
+    #        n = len(homeNeighbors)
         if node in homeSet and not dropped:
             dropoff_mapping[node] = [node]
             homeSet.remove(node)
             homeList.remove(current)
         if len(homeList) != 0:
-            closest, distance = find_closest_home_to_location(current)
+            closest, distance = find_closest_home_to_location(current, homeList)
             path_to_next = nx.reconstruct_path(node,list_of_locations.index(closest), predecessors)
             path.extend(path_to_next[1:])
             current = closest
