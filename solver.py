@@ -72,14 +72,13 @@ def tsp(nodes, list_of_homes, dist=None):
     m.solve()
     a['ValIJ'] = a.VarIJ.apply(value)
     dc = dict(a[a.ValIJ > 0.5][['NodeI', 'NodeJ']].values)
-    print(dc)
-    
     return value(m.objective), list(take(n, iterate(lambda k:dc[k], 0)))
 
 def greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix):
     #print(adjacency_matrix)
     G = nx.Graph(incoming_graph_data=adjacency_matrix, cutoff=1000)
     predecessors, distances = nx.floyd_warshall_predecessor_and_distance(G)
+    print(list(distances.items())[0][1][0])
 
     def find_closest_home_to_location(location):
         distance = float('inf')
