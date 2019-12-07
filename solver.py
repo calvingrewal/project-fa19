@@ -79,8 +79,7 @@ def greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, adja
     #print(adjacency_matrix)
     G = nx.Graph(incoming_graph_data=adjacency_matrix, cutoff=1000)
     predecessors, distances = nx.floyd_warshall_predecessor_and_distance(G)
-    print(list(distances.items())[0][1][0])
-
+    list_of_homes = list_of_homes[:]
     def find_closest_home_to_location(location):
         distance = float('inf')
         closest_home = list_of_homes[0]
@@ -348,6 +347,143 @@ def steiner_find2(list_of_locations, list_of_homes, starting_car_location, adjac
     path.extend(path_to_start[1:])
     return path, dropoff_mapping
    
+def dropOffOptimizer(list_locations, list_houses, starting_car_location, adjacency_matrix):
+    G = nx.Graph(incoming_graph_data=adjacency_matrix, cutoff=1000)
+    predecessors, distances = nx.floyd_warshall_predecessor_and_distance(G)
+    car_path, drop_offs, homeList = greedyAllPairs3(list_locations, list_houses, starting_car_location, adjacency_matrix)
+    prev_dropoff = list_locations.index(starting_car_location)
+
+    list_houses = homeList
+
+    def cost(h, i, j, k):
+        '''
+        h : place you are coming from
+        i : place to drop off person
+        j : actual house for person dropped off at i
+        k : next place to drive to
+        '''
+        return ((2 / 3) * list(distances.items())[h][1][i]) + (list(distances.items())[i][1][j]) + (
+                    (2 / 3) * list(distances.items())[i][1][k])
+
+    #how do i access the next index in the list of houses?
+    #ask eric and calvin to check the code and see if it has correct syntax
+    i = 0
+    drop_to_home = {}
+    dropoff_list = []
+    while (i < len(list_houses) - 1):
+        i_ind = list_locations.index(homeList[i])
+        i_ind_next = list_locations.index(homeList[i+1])
+        total_cost = (2/3)*(list(distances.items())[prev_dropoff][1][i_ind] + list(distances.items())[i_ind][1][i_ind_next])
+        best_dropoff = i_ind
+        for x in list_locations:
+            x_ind = list_locations.index(x)
+            challenge = cost(prev_dropoff, x_ind, i_ind, i_ind_next)
+            if challenge < total_cost:
+                total_cost = challenge
+                best_dropoff = x_ind
+        prev_dropoff = best_dropoff
+        best_dropoff_location = list_locations[best_dropoff]
+        if best_dropoff not in drop_to_home:
+            drop_to_home[best_dropoff] = []
+        drop_to_home[best_dropoff].append(i_ind)
+        dropoff_list.append(best_dropoff_location)
+        i +=1
+
+    last_house_index = list_locations.index(homeList[-1])
+    best_last_dropoff = list_locations.index(homeList[-1])
+    start_car_idx = list_locations.index(starting_car_location)
+    total_last_cost = (2/3) * (list(distances.items())[prev_dropoff][1][best_last_dropoff] + list(distances.items())[best_last_dropoff][1][start_car_idx])
+    for x in list_locations:
+        x_ind = list_locations.index(x)
+        challenge = cost(prev_dropoff, x_ind, last_house_index ,start_car_idx)
+        if challenge < total_cost:
+            total_last_cost = challenge
+            best_last_dropoff = x_ind
+    if best_last_dropoff not in drop_to_home:
+            drop_to_home[best_last_dropoff] = []
+    drop_to_home[best_last_dropoff].append(last_house_index)
+    dropoff_list.append(list_locations[best_last_dropoff])
+    return dropOffPath(list_locations, dropoff_list, drop_to_home, starting_car_location, adjacency_matrix)
+
+def greedyAllPairs3(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix):
+    #print(adjacency_matrix)
+    G = nx.Graph(incoming_graph_data=adjacency_matrix, cutoff=1000)
+    predecessors, distances = nx.floyd_warshall_predecessor_and_distance(G)
+    list_of_homes = list_of_homes[:]
+    homeList = []
+    def find_closest_home_to_location(location):
+        distance = float('inf')
+        closest_home = list_of_homes[0]
+        for h in list_of_homes:
+            home_idx = list_of_locations.index(h)
+            location_idx = list_of_locations.index(location)
+            new_dist = list(distances.items())[home_idx][1][location_idx]
+
+            if new_dist < distance:
+                distance = new_dist
+                closest_home = h
+        return closest_home, distance
+
+    current = starting_car_location
+    total_path = [list_of_locations.index(starting_car_location)]
+    dropoff_mapping = {}
+
+    for _ in range(len(list_of_homes)):
+        closest, distance = find_closest_home_to_location(current)
+        homeList.append(closest)
+
+        curr_idx = list_of_locations.index(current)
+        next_idx = list_of_locations.index(closest)
+        path_to_closest = nx.reconstruct_path(curr_idx, next_idx, predecessors)
+        dropoff_mapping[next_idx] = [next_idx]
+        total_path.extend(path_to_closest[1:])
+
+        list_of_homes.remove(closest)
+        current = closest
+
+    start_idx = list_of_locations.index(starting_car_location)
+    path_to_start = nx.reconstruct_path(next_idx, start_idx, predecessors)
+    total_path.extend(path_to_start[1:])
+    return total_path, dropoff_mapping, homeList
+
+def dropOffPath(list_of_locations, list_of_homes, drop_to_home, starting_car_location, adjacency_matrix):
+    #print(adjacency_matrix)
+    G = nx.Graph(incoming_graph_data=adjacency_matrix, cutoff=1000)
+    predecessors, distances = nx.floyd_warshall_predecessor_and_distance(G)
+    list_of_homes = list_of_homes[:]
+    def find_closest_home_to_location(location):
+        distance = float('inf')
+        closest_home = list_of_homes[0]
+        for h in list_of_homes:
+            home_idx = list_of_locations.index(h)
+            location_idx = list_of_locations.index(location)
+            new_dist = list(distances.items())[home_idx][1][location_idx]
+
+            if new_dist < distance:
+                distance = new_dist
+                closest_home = h
+        return closest_home, distance
+
+    current = starting_car_location
+    total_path = [list_of_locations.index(starting_car_location)]
+    dropoff_mapping = {}
+
+    for _ in range(len(list_of_homes)):
+        closest, distance = find_closest_home_to_location(current)
+
+        curr_idx = list_of_locations.index(current)
+        next_idx = list_of_locations.index(closest)
+        path_to_closest = nx.reconstruct_path(curr_idx, next_idx, predecessors)
+        dropoff_mapping[next_idx] = drop_to_home[next_idx]
+        total_path.extend(path_to_closest[1:])
+        list_of_homes.remove(list_of_locations[next_idx])
+        current = closest
+
+    start_idx = list_of_locations.index(starting_car_location)
+    path_to_start = nx.reconstruct_path(next_idx, start_idx, predecessors)
+    total_path.extend(path_to_start[1:])
+    return total_path, dropoff_mapping
+
 def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_matrix, params=[]):
     """
     Write your algorithm here.
@@ -374,19 +510,27 @@ def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_mat
             else:
                 fixed_adjacency_matrix[r,c] = float(fixed_adjacency_matrix[r,c])
     fixed_adjacency_matrix = fixed_adjacency_matrix.astype(np.float)
-    path2, mapping2 = steiner_find(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
+    # path2, mapping2 = steiner_find(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
     # path3, mapping3 = steiner_find2(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
-    path4, mapping4 = greedyAllPairs2(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
+    # path4, mapping4 = greedyAllPairs2(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
+    path5, mapping5 = dropOffOptimizer(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
     path, mapping = greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
     G = nx.Graph(incoming_graph_data= fixed_adjacency_matrix, cutoff=1000)
     greedyCost = cost_of_solution(G, path, mapping)
-    greedyCost2 = cost_of_solution(G, path4, mapping4)   
-    steinerCost = cost_of_solution(G, path2, mapping2)
+    # greedyCost2 = cost_of_solution(G, path4, mapping4)   
+    # steinerCost = cost_of_solution(G, path2, mapping2)
+    dropOffOptimizerCost = cost_of_solution(G, path5, mapping5)
     # steiner2Cost = cost_of_solution(G, path3, mapping3)
     print(greedyCost)
-    print(greedyCost2)
-    print(steinerCost)
+    # print(greedyCost2)
+    # print(steinerCost)
+    print(dropOffOptimizerCost)
     # print(steiner2Cost)
+    if (greedyCost <= dropOffOptimizerCost):
+        print("greedy1")
+        return path, mapping
+    print("dropOffOptimizer")
+    return path5, mapping5
     if (greedyCost <= greedyCost2) and greedyCost < steinerCost:
         print("greedy1")
         return path, mapping
