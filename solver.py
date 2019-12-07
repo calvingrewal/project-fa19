@@ -510,29 +510,29 @@ def solve(list_of_locations, list_of_homes, starting_car_location, adjacency_mat
             else:
                 fixed_adjacency_matrix[r,c] = float(fixed_adjacency_matrix[r,c])
     fixed_adjacency_matrix = fixed_adjacency_matrix.astype(np.float)
-    path2, mapping2 = steiner_find(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
+    # path2, mapping2 = steiner_find(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
     # path3, mapping3 = steiner_find2(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
     # path4, mapping4 = greedyAllPairs2(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
     path5, mapping5 = dropOffOptimizer(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
-    path, mapping = greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
-    G = nx.Graph(incoming_graph_data= fixed_adjacency_matrix, cutoff=1000)
-    greedyCost = cost_of_solution(G, path, mapping)
+    # path, mapping = greedyAllPairs(list_of_locations, list_of_homes, starting_car_location, fixed_adjacency_matrix)
+    # G = nx.Graph(incoming_graph_data= fixed_adjacency_matrix, cutoff=1000)
+    # greedyCost = cost_of_solution(G, path, mapping)
     # greedyCost2 = cost_of_solution(G, path4, mapping4)   
-    steinerCost = cost_of_solution(G, path2, mapping2)
-    dropOffOptimizerCost = cost_of_solution(G, path5, mapping5)
+    # steinerCost = cost_of_solution(G, path2, mapping2)
+    # dropOffOptimizerCost = cost_of_solution(G, path5, mapping5)
     # steiner2Cost = cost_of_solution(G, path3, mapping3)
     # print(greedyCost)
     # # print(greedyCost2)
     # print(steinerCost)
     # print(dropOffOptimizerCost)
     # print(steiner2Cost)
-    if (greedyCost <= dropOffOptimizerCost) and greedyCost <= steinerCost:
-        print("greedy1")
-        return path, mapping
-    elif steinerCost <= dropOffOptimizerCost:
-        print("mst")
-        return path2, mapping2
-    print("dropOffOptimizer")
+    # if (greedyCost <= dropOffOptimizerCost) and greedyCost <= steinerCost:
+    #     print("greedy1")
+    #     return path, mapping
+    # elif steinerCost <= dropOffOptimizerCost:
+    #     print("mst")
+    #     return path2, mapping2
+    # print("dropOffOptimizer")
     return path5, mapping5
    
     # if greedyCost < steinerCost and greedyCost < steiner2Cost:
